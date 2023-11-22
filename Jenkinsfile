@@ -34,14 +34,16 @@ pipeline {
 
       }
     }
+
     stage('unit-test') {
       steps {
         script {
           docker.image("${registry}:${env.BUILD_ID}").inside{
             c-> sh 'python app_test.py'}
           }
+
+        }
       }
-    }
     stage('http-test'){
       steps{
         script{
@@ -56,7 +58,7 @@ pipeline {
         script {
           sh 'mkdir -p reports'
           sh 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl > html.tpl'
-          def vulnerabilities = sh(script: "trivy image --exit-code 0 --severity HIGH,MEDIUM,LOW --format template --template '@html.tpl' -o reports/image-scan.html --no-progress ${registry}:${env.BUILD_ID}", returnStdout: true).trim()
+          def vulnerabilities = sh(script: "trivy image --ignore-unfixed --exit-code 0 --severity HIGH,MEDIUM,LOW --format template --template '@html.tpl' -o reports/image-scan.html --no-progress ${registry}:${env.BUILD_ID}", returnStdout: true).trim()
           echo "Vulnerability Report:\n${vulnerabilities}"
           publishHTML target : [
                     allowMissing: true,
@@ -67,13 +69,34 @@ pipeline {
                     reportName: 'Trivy Scan',
                     reportTitles: 'Trivy Scan'
                 ]
-         sh "trivy image --ignore-unfixed --exit-code 1 --severity CRITICAL --no-progress ${registry}:latest"
+         sh "trivy image --ignore-unfixed --exit-code 1 --severity CRITICAL --no-progress ${registry}:${env.BUILD_ID}"
 
         }
       }
     }
+    stage('Publish') {
+      steps {
+        script {
+          docker.withRegistry('','dockerhub_id'){
+            docker.image("${registry}:${env.BUILD_ID}").push('latest')
+            docker.image("${registry}:${env.BUILD_ID}").push("${env.BUILD_ID}")
+          }
+        }
+
+      }
+    }
+  stage('Deploy') {
+  steps{
+    sh "docker stop flask-app || true; docker rm flask-app || true; docker run -d --name flask-app -p 9000:9000 ${registry}:${env.BUILD_ID}"
   }
+}
+stage('Validation') {
+  steps{
+    sh 'sleep 5; curl -i http://localhost:9000/test_string'
+  }
+}
+    }
     environment {
       registry = 'aciura86/test'
     }
-}
+  }
