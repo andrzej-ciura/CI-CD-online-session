@@ -17,7 +17,8 @@ pipeline {
           docker.image("${registry}:${env.BUILD_ID}").inside{
             c-> sh 'python app_test.py'}
           }
-        
+      }
+    }
     stage('http-test'){
       steps{
         script{
@@ -31,3 +32,4 @@ pipeline {
       registry = 'aciura86/test'
     }
   }
+}
