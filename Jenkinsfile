@@ -28,8 +28,8 @@ pipeline {
         }
       }
     }
+  }
     environment {
       registry = 'aciura86/test'
     }
-  }
 }
